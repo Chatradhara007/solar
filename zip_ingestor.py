@@ -3,6 +3,7 @@ import glob
 import time
 import zipfile
 import pandas as pd
+import numpy as np
 from astropy.io import fits
 import shutil
 
@@ -20,7 +21,6 @@ def extract_and_process(zip_path):
             
         fits_files = glob.glob(os.path.join(temp_dir, "**", "*.fits"), recursive=True)
         
-        # Group by instrument (mocking the extraction logic)
         solexs_data = None
         hel1os_data = None
         
@@ -33,33 +33,55 @@ def extract_and_process(zip_path):
                 df_raw.set_index('dt', inplace=True)
                 df_resampled = df_raw.resample('10s').mean().dropna()
                 
-                if 'solexs' in fname:
-                    solexs_data = df_resampled
-                elif 'hel1os' in fname:
-                    hel1os_data = df_resampled
+                # Check naming convention for instrument
+                if 'solexs' in fname or 'slx' in fname:
+                    solexs_data = df_resampled.rename(columns={'counts': 'counts'})
+                    print(f"    -> Found SoLEXS data: {len(solexs_data)} rows.")
+                elif 'hel1os' in fname or 'hlo' in fname:
+                    hel1os_data = df_resampled.rename(columns={'counts': 'hel1os_counts'})
+                    print(f"    -> Found HEL1OS data: {len(hel1os_data)} rows.")
                     
-        if solexs_data is not None and hel1os_data is not None:
-            # Sync the instruments using an inner join on the temporal grid
-            merged = pd.merge(solexs_data, hel1os_data, left_index=True, right_index=True, suffixes=('_solexs', '_hel1os'))
-            
-            merged['iso'] = merged.index.strftime('%Y-%m-%d %H:%M:%S.%f').str[:-3]
-            df_final = pd.DataFrame({
-                'timestamp': merged['timestamp_solexs'],
-                'counts': merged['counts_solexs'],
-                'hel1os_counts': merged['counts_hel1os'],
-                'iso': merged['iso']
-            })
-            
-            append_header = not os.path.exists(CSV_FILE)
-            df_final.to_csv(CSV_FILE, mode='a', header=append_header, index=False)
-            print(f"[+] Successfully merged and appended {len(df_final)} rows to {CSV_FILE}.")
+        if solexs_data is None and hel1os_data is None:
+            print("[!] No valid SoLEXS or HEL1OS .fits files found in zip.")
         else:
-            print("[!] ZIP did not contain both instrument files.")
+            # Load existing database to merge new data
+            if os.path.exists(CSV_FILE):
+                df_existing = pd.read_csv(CSV_FILE)
+                df_existing['dt'] = pd.to_datetime(df_existing['timestamp'], unit='s')
+                df_existing.set_index('dt', inplace=True)
+            else:
+                df_existing = pd.DataFrame()
+                
+            # Combine the incoming data
+            new_data = None
+            if solexs_data is not None and hel1os_data is not None:
+                new_data = solexs_data.join(hel1os_data[['hel1os_counts']], how='outer')
+            elif solexs_data is not None:
+                new_data = solexs_data
+                new_data['hel1os_counts'] = np.nan
+            elif hel1os_data is not None:
+                new_data = hel1os_data
+                new_data['counts'] = np.nan
+                
+            if new_data is not None:
+                # Merge incoming data into existing database, prioritizing new data
+                df_existing = new_data.combine_first(df_existing)
+                
+                # Interpolate missing values so the AI model doesn't crash on NaNs
+                df_existing['counts'] = df_existing['counts'].interpolate(method='time').fillna(0)
+                df_existing['hel1os_counts'] = df_existing['hel1os_counts'].interpolate(method='time').fillna(0)
+                
+                # Format and save
+                df_existing['iso'] = df_existing.index.strftime('%Y-%m-%d %H:%M:%S.%f').str[:-3]
+                df_final = df_existing[['timestamp', 'counts', 'hel1os_counts', 'iso']].copy()
+                df_final.to_csv(CSV_FILE, index=False)
+                print(f"[+] Data successfully merged into database. Total rows: {len(df_final)}")
             
-        # Move processed zip
+        # Move processed zip so it doesn't get processed again
         processed_dir = os.path.join(ZIP_DIR, "processed")
         os.makedirs(processed_dir, exist_ok=True)
         os.rename(zip_path, os.path.join(processed_dir, os.path.basename(zip_path)))
+        print(f"[>] Moved zip to {processed_dir}\n")
         
     except Exception as e:
         print(f"[!] Error processing {zip_path}: {e}")
@@ -67,7 +89,7 @@ def extract_and_process(zip_path):
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 def watch_directory():
-    print(f"Monitoring {ZIP_DIR} for incoming dual-instrument .zip telemetry...")
+    print(f"Monitoring {ZIP_DIR} for incoming telemetry (.zip)...")
     while True:
         zip_files = glob.glob(os.path.join(ZIP_DIR, "*.zip"))
         for z in zip_files:
