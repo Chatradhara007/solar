@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SoLEXS AI Forecast Engine</title>
+<title>SoLEXS & HEL1OS AI Forecast Engine</title>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -11,6 +11,7 @@
     --bg: #0a0a0a;
     --border: #800000;
     --accent: #D2042D;
+    --accent-blue: #3b82f6;
     --text: #fbfbfb;
     --muted: #a38d8d;
     --glass-bg: rgba(20, 16, 17, 0.6);
@@ -19,59 +20,43 @@
   
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { 
-    background-color: var(--bg);
-    color: var(--text);
+    background-color: var(--bg); color: var(--text);
     font-family: 'Space Grotesk', sans-serif;
-    min-height: 100vh;
-    overflow: hidden;
-    position: relative;
+    min-height: 100vh; overflow: hidden; position: relative;
   }
 
-  /* Cinematic ambient glows */
   .glow-orb-1 {
     position: absolute; top: -10%; left: -5%; width: 40vw; height: 40vw;
-    background: radial-gradient(circle, rgba(128,0,0,0.15) 0%, rgba(10,10,10,0) 70%);
-    z-index: -1;
+    background: radial-gradient(circle, rgba(128,0,0,0.15) 0%, rgba(10,10,10,0) 70%); z-index: -1;
   }
   .glow-orb-2 {
     position: absolute; bottom: -20%; right: -10%; width: 50vw; height: 50vw;
-    background: radial-gradient(circle, rgba(210,4,45,0.1) 0%, rgba(10,10,10,0) 70%);
-    z-index: -1;
+    background: radial-gradient(circle, rgba(210,4,45,0.1) 0%, rgba(10,10,10,0) 70%); z-index: -1;
+  }
+  .glow-orb-3 {
+    position: absolute; top: 20%; right: 10%; width: 30vw; height: 30vw;
+    background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, rgba(10,10,10,0) 70%); z-index: -1;
   }
 
   .glass-panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   }
 
   .layout {
-    display: grid;
-    grid-template-columns: 1fr 340px;
-    grid-template-rows: auto 1fr;
-    gap: 1.5rem;
-    height: 100vh;
-    padding: 1.5rem;
+    display: grid; grid-template-columns: 1fr 340px; grid-template-rows: auto 1fr;
+    gap: 1.5rem; height: 100vh; padding: 1.5rem;
   }
 
   /* TOP BAR */
-  header {
-    grid-column: 1 / -1;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 2rem;
-  }
+  header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; padding: 1rem 2rem; }
   .brand { display: flex; align-items: center; gap: 1rem; }
   .logo { font-size: 1.5rem; font-weight: 700; color: var(--text); letter-spacing: 2px; text-transform: uppercase; }
   .logo span { color: var(--accent); }
+  .logo sub { font-size: 0.7rem; color: var(--accent-blue); letter-spacing: 1px; }
   .live-pulse {
     width: 10px; height: 10px; background: var(--accent); border-radius: 50%;
-    box-shadow: 0 0 10px var(--accent);
-    animation: pulse 2s infinite;
+    box-shadow: 0 0 10px var(--accent); animation: pulse 2s infinite;
   }
   @keyframes pulse {
     0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(210,4,45, 0.7); }
@@ -80,83 +65,74 @@
   }
   .date-control { display: flex; align-items: center; gap: 1rem; }
   select.date-select {
-    appearance: none; background: rgba(10,10,10,0.8);
-    border: 1px solid var(--border); color: var(--text);
-    padding: 0.5rem 1.5rem; border-radius: 8px; font-family: inherit; font-size: 1rem;
-    cursor: pointer; transition: all 0.3s ease;
+    appearance: none; background: rgba(10,10,10,0.8); border: 1px solid var(--border); color: var(--text);
+    padding: 0.5rem 1.5rem; border-radius: 8px; font-family: inherit; font-size: 1rem; cursor: pointer; transition: all 0.3s ease;
   }
   select.date-select:hover { border-color: var(--accent); box-shadow: 0 0 15px rgba(210,4,45,0.2); }
 
   /* MAIN CONTENT */
   .main-col { display: flex; flex-direction: column; gap: 1.5rem; min-height: 0; }
-  
   .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
-  .stat-card {
-    padding: 1.2rem;
-    display: flex; flex-direction: column; justify-content: center;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
+  .stat-card { padding: 1.2rem; display: flex; flex-direction: column; justify-content: center; transition: transform 0.2s ease, box-shadow 0.2s ease; }
   .stat-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(128,0,0,0.3); }
   .stat-value { font-size: 2rem; font-weight: 700; color: var(--text); }
   .stat-value span { font-size: 1rem; color: var(--accent); }
   .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 0.3rem; }
 
   .chart-container { flex: 1; padding: 1rem; display: flex; flex-direction: column; position: relative; min-height: 0; }
-  
+  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .chart-title { font-size: 1rem; font-weight: 600; letter-spacing: 1px; }
+  .controls { display: flex; gap: 0.5rem; }
+  .btn {
+    background: rgba(10,10,10,0.8); border: 1px solid var(--border); color: var(--text);
+    padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: inherit; transition: all 0.2s ease;
+  }
+  .btn:hover { border-color: var(--accent); background: rgba(128,0,0,0.3); }
+  .btn.active { background: var(--accent); border-color: var(--accent); color: var(--text); box-shadow: 0 0 15px rgba(210,4,45,0.4); }
+
+  #chart { flex: 1; }
+
   /* SIDEBAR */
   .side-col { display: flex; flex-direction: column; gap: 1.5rem; min-height: 0; }
   
   .banner {
-    padding: 1.2rem; border-radius: 12px; display: none;
-    border-left: 4px solid;
+    padding: 1.2rem; border-radius: 12px; display: none; border-left: 4px solid;
     animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
   .banner.active { display: block; }
   .banner.forecast { background: rgba(128,0,0,0.3); border-color: var(--text); }
   .banner.flare { background: rgba(210,4,45,0.2); border-color: var(--accent); }
-  .banner-title { font-weight: 700; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4rem; }
+  .banner-title { font-weight: 700; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4rem; color: var(--accent); }
   .banner.forecast .banner-title { color: var(--text); }
-  .banner.flare .banner-title { color: var(--accent); }
   .banner-body { font-size: 0.85rem; color: rgba(251,251,251,0.8); line-height: 1.4; }
 
-  .flare-feed { flex: 1; padding: 1.5rem; display: flex; flex-direction: column; overflow: hidden; }
+  .master-feed { flex: 1; padding: 1.5rem; display: flex; flex-direction: column; overflow: hidden; }
   .section-title { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 1.2rem; display: flex; justify-content: space-between; }
   .flare-list { overflow-y: auto; display: flex; flex-direction: column; gap: 0.8rem; padding-right: 0.5rem; }
   
   .flare-item {
-    background: rgba(10,10,10,0.5); border: 1px solid var(--glass-border);
-    border-radius: 8px; padding: 1rem; cursor: pointer;
+    background: rgba(10,10,10,0.5); border: 1px solid var(--glass-border); border-radius: 8px; padding: 1rem; cursor: pointer;
     transition: all 0.25s ease; position: relative; overflow: hidden;
   }
   .flare-item:hover { background: rgba(128,0,0,0.4); border-color: var(--accent); transform: translateX(-5px); }
-  .flare-item::before {
-    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-    background: var(--muted); transition: background 0.25s ease;
-  }
-  .flare-item.X::before { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-  .flare-item.M::before { background: #eab308; }
+  .flare-item::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--muted); transition: background 0.25s ease; }
+  .flare-item.verified::before { background: var(--accent-blue); box-shadow: 0 0 10px var(--accent-blue); }
   
   .f-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
-  .f-class { font-weight: 700; font-size: 1.2rem; }
-  .f-class.X { color: var(--accent); }
-  .f-class.M { color: #eab308; }
+  .f-class { font-weight: 700; font-size: 1.2rem; color: var(--accent); }
   .f-time { font-size: 0.75rem; color: var(--muted); }
-  .f-details { font-size: 0.85rem; color: var(--text); }
+  .f-details { font-size: 0.85rem; color: var(--text); margin-bottom: 0.25rem; }
+  .f-verified { font-size: 0.7rem; color: var(--accent-blue); display: flex; align-items: center; gap: 0.3rem; }
 
-  /* CHART CONTROLS */
-  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
-  .chart-title { font-size: 1rem; font-weight: 600; letter-spacing: 1px; }
-  .controls { display: flex; gap: 0.5rem; }
-  .btn {
-    background: rgba(10,10,10,0.8); border: 1px solid var(--border); color: var(--text);
-    padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-family: inherit;
-    transition: all 0.2s ease;
-  }
-  .btn:hover { border-color: var(--accent); background: rgba(128,0,0,0.3); }
-  .btn.active { background: var(--accent); border-color: var(--accent); color: var(--text); box-shadow: 0 0 15px rgba(210,4,45,0.4); }
-
-  #chart { flex: 1; }
+  /* CHATBOT */
+  .chatbot { height: 250px; display: flex; flex-direction: column; }
+  .chat-log { flex: 1; padding: 1rem; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .chat-msg { background: rgba(10,10,10,0.8); padding: 0.8rem; border-radius: 8px; border: 1px solid var(--border); line-height: 1.4; }
+  .chat-msg.bot { border-color: var(--accent-blue); background: rgba(59,130,246,0.1); }
+  .chat-input { display: flex; padding: 0.5rem; border-top: 1px solid var(--glass-border); }
+  .chat-input input { flex: 1; background: transparent; border: none; color: var(--text); font-family: inherit; font-size: 0.9rem; padding: 0.5rem; outline: none; }
+  .chat-input button { background: var(--accent); color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600; }
 
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -168,13 +144,14 @@
 
 <div class="glow-orb-1"></div>
 <div class="glow-orb-2"></div>
+<div class="glow-orb-3"></div>
 
 <div class="layout">
   
   <header class="glass-panel">
     <div class="brand">
       <div class="live-pulse"></div>
-      <div class="logo">SoLEXS <span>AI</span></div>
+      <div class="logo">SoLEXS <span>AI</span> <sub>+ HEL1OS</sub></div>
     </div>
     <div class="date-control">
       <span style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px;">Observation Date</span>
@@ -190,25 +167,25 @@
     <div class="stats-row">
       <div class="stat-card glass-panel">
         <div class="stat-value" id="statMax">— <span>cts</span></div>
-        <div class="stat-label">Peak Intensity</div>
-      </div>
-      <div class="stat-card glass-panel">
-        <div class="stat-value" id="statBaseline">— <span>cts</span></div>
-        <div class="stat-label">Quiet Background</div>
+        <div class="stat-label">Peak Intensity (Soft)</div>
       </div>
       <div class="stat-card glass-panel">
         <div class="stat-value" id="statFlares">—</div>
-        <div class="stat-label">Flares Detected</div>
+        <div class="stat-label">Total Detections</div>
+      </div>
+      <div class="stat-card glass-panel">
+        <div class="stat-value" id="statVerified">—</div>
+        <div class="stat-label">HEL1OS Verified</div>
       </div>
       <div class="stat-card glass-panel">
         <div class="stat-value" id="statForecasts">—</div>
-        <div class="stat-label">AI Alerts</div>
+        <div class="stat-label">AI Forecasts</div>
       </div>
     </div>
 
     <div class="chart-container glass-panel">
       <div class="chart-header">
-        <div class="chart-title">X-Ray Flux Telemetry</div>
+        <div class="chart-title">Dual-Instrument X-Ray Telemetry (Neupert Effect)</div>
         <div class="controls">
           <button class="btn active" id="btnFull" onclick="setView('full')">Full Series</button>
           <button class="btn" id="btnFlare" onclick="setView('flare')">Auto-Focus</button>
@@ -229,17 +206,29 @@
       <div class="banner-body" id="forecastBody">Monitoring...</div>
     </div>
 
-    <div class="flare-feed glass-panel">
+    <div class="master-feed glass-panel">
       <div class="section-title">
-        Event Catalogue 
-        <span style="font-size:0.7rem; background:rgba(210,4,45,0.2); color:var(--accent); padding:2px 6px; border-radius:4px;">LIVE</span>
+        Master Catalogue 
+        <span style="font-size:0.7rem; background:rgba(59,130,246,0.2); color:var(--accent-blue); padding:2px 6px; border-radius:4px;">SYNCED</span>
       </div>
       <div class="flare-list" id="flareList">
         <div style="text-align:center; padding: 2rem; color: var(--muted); font-size:0.9rem;">Initializing Engine...</div>
       </div>
     </div>
-  </div>
 
+    <!-- CHATBOT UI -->
+    <div class="chatbot glass-panel">
+      <div class="section-title" style="padding: 1rem 1rem 0 1rem; margin-bottom: 0;">Solar Weather Assistant</div>
+      <div class="chat-log" id="chatLog">
+        <div class="chat-msg bot">Hello! I'm your AI assistant connected to the live telemetry database. Ask me to summarize today's solar flares.</div>
+      </div>
+      <div class="chat-input">
+        <input type="text" id="chatInput" placeholder="Ask about the telemetry..." onkeypress="if(event.key === 'Enter') sendChat()">
+        <button onclick="sendChat()">Ask</button>
+      </div>
+    </div>
+
+  </div>
 </div>
 
 <script>
@@ -259,49 +248,46 @@ function renderChart() {
   const d = currentData;
   const traces = [];
 
-  // Raw counts
+  // SoLEXS Raw
   traces.push({
     x: d.timestamps, y: d.counts,
-    type: 'scatter', mode: 'lines',
-    name: 'Raw Flux',
+    type: 'scatter', mode: 'lines', name: 'SoLEXS (Soft)',
     line: { color: 'rgba(128,0,0,0.5)', width: 1 },
-    hovertemplate: '%{y:.0f} cts<br>%{x}<extra></extra>'
+    hovertemplate: '%{y:.0f} cts<extra>Soft X-Ray</extra>'
   });
 
-  // Smoothed
+  // SoLEXS Smoothed
   traces.push({
     x: d.timestamps, y: d.smoothed,
-    type: 'scatter', mode: 'lines',
-    name: 'Smoothed',
+    type: 'scatter', mode: 'lines', name: 'SoLEXS Smoothed',
     line: { color: '#fbfbfb', width: 2 },
-    hovertemplate: '%{y:.1f} cts<br>%{x}<extra></extra>'
+    hovertemplate: '%{y:.1f} cts<extra></extra>'
   });
 
-  // Threshold
+  // HEL1OS Smoothed (Secondary Axis)
   traces.push({
-    x: d.timestamps, y: d.threshold,
-    type: 'scatter', mode: 'lines',
-    name: '5σ Threshold',
-    line: { color: '#D2042D', width: 1, dash: 'dash' },
-    hovertemplate: '%{y:.1f}<extra>Threshold</extra>'
+    x: d.timestamps, y: d.smoothed_hel1os,
+    type: 'scatter', mode: 'lines', name: 'HEL1OS (Hard)',
+    line: { color: '#3b82f6', width: 1.5 },
+    yaxis: 'y2',
+    hovertemplate: '%{y:.1f} cts<extra>Hard X-Ray</extra>'
   });
 
   // Flare peak markers
   if (d.flares.length > 0) {
-    const colors = { X: '#D2042D', M: '#eab308', C: '#22c55e', B: '#22c55e', A: '#22c55e' };
     traces.push({
       x: d.flares.map(f => f.peak_time),
-      y: d.flares.map(f => f.peak_counts),
-      type: 'scatter', mode: 'markers',
-      name: 'Flare Peak',
+      y: d.flares.map(f => f.solexs_peak),
+      type: 'scatter', mode: 'markers', name: 'Master Peak',
       marker: {
-        size: 12, symbol: 'star',
-        color: d.flares.map(f => colors[f.goes_class] || '#D2042D'),
+        size: d.flares.map(f => f.verified_by_hel1os ? 14 : 10), 
+        symbol: 'star',
+        color: d.flares.map(f => f.verified_by_hel1os ? '#3b82f6' : '#D2042D'),
         line: { width: 1, color: '#0a0a0a' },
         opacity: 0.9
       },
-      text: d.flares.map(f => `Class ${f.goes_class} | ${f.peak_counts.toFixed(0)} cts`),
-      hovertemplate: '%{text}<br>%{x}<extra></extra>'
+      text: d.flares.map(f => `Class ${f.goes_class} | ${f.verified_by_hel1os ? 'Verified' : 'Unverified'}`),
+      hovertemplate: '%{text}<br>Peak: %{y:.0f} cts<extra></extra>'
     });
   }
 
@@ -310,8 +296,7 @@ function renderChart() {
     traces.push({
       x: d.forecasts.map(f => f.alert_time),
       y: d.forecasts.map((f, i) => d.smoothed[f.alert_idx] || 0),
-      type: 'scatter', mode: 'markers',
-      name: 'AI Forecast',
+      type: 'scatter', mode: 'markers', name: 'AI Forecast',
       marker: { size: 10, symbol: 'triangle-up', color: '#fbfbfb', line: { width: 1, color: '#D2042D' } },
       text: d.forecasts.map(f => `⚡ Lead: ${(f.lead_time_s/60).toFixed(0)}m`),
       hovertemplate: '%{text}<br>%{x}<extra></extra>'
@@ -319,24 +304,28 @@ function renderChart() {
   }
 
   const layout = {
-    paper_bgcolor: 'rgba(0,0,0,0)',
-    plot_bgcolor: 'rgba(0,0,0,0)',
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { color: '#fbfbfb', family: 'Space Grotesk, sans-serif', size: 12 },
     xaxis: {
-      gridcolor: 'rgba(128,0,0,0.2)',
-      tickfont: { size: 10, color: '#a38d8d' },
+      gridcolor: 'rgba(128,0,0,0.2)', tickfont: { size: 10, color: '#a38d8d' },
       rangeslider: { visible: true, bgcolor: 'rgba(10,10,10,0.8)', bordercolor: '#800000', thickness: 0.05 }
     },
     yaxis: {
-      gridcolor: 'rgba(128,0,0,0.2)',
-      type: logScale ? 'log' : 'linear',
+      title: 'Soft X-Ray (counts)',
+      gridcolor: 'rgba(128,0,0,0.2)', type: logScale ? 'log' : 'linear',
       tickfont: { size: 10, color: '#a38d8d' }
+    },
+    yaxis2: {
+      title: 'Hard X-Ray (counts)',
+      overlaying: 'y', side: 'right',
+      gridcolor: 'rgba(59,130,246,0.1)', type: logScale ? 'log' : 'linear',
+      tickfont: { size: 10, color: '#3b82f6' }
     },
     legend: {
       bgcolor: 'rgba(10,10,10,0.7)', bordercolor: 'rgba(128,0,0,0.4)', borderwidth: 1,
       x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top', font: { size: 10 }
     },
-    margin: { l: 45, r: 10, t: 10, b: 40 },
+    margin: { l: 50, r: 50, t: 10, b: 40 },
     hovermode: 'x unified',
     shapes: buildFlareShapes(d.flares),
   };
@@ -352,8 +341,7 @@ function buildFlareShapes(flares) {
   const colors = { X: 'rgba(210,4,45,0.15)', M: 'rgba(234,179,8,0.1)', C: 'rgba(34,197,94,0.05)' };
   return flares.map(f => ({
     type: 'rect', xref: 'x', yref: 'paper',
-    x0: f.start_time, x1: f.end_time,
-    y0: 0, y1: 1,
+    x0: f.start_time, x1: f.end_time, y0: 0, y1: 1,
     fillcolor: colors[f.goes_class] || 'rgba(128,0,0,0.05)',
     line: { width: 0 }, layer: 'below'
   }));
@@ -364,46 +352,40 @@ function renderSidebar() {
   const s = d.stats;
 
   document.getElementById('statMax').innerHTML = `${s.max_counts.toFixed(0)} <span>cts</span>`;
-  document.getElementById('statBaseline').innerHTML = `${s.baseline.toFixed(1)} <span>cts</span>`;
   document.getElementById('statFlares').textContent = s.n_flares;
+  document.getElementById('statVerified').innerHTML = `<span style="color:var(--accent-blue)">${s.n_verified}</span>`;
   document.getElementById('statForecasts').textContent = s.n_forecasts;
 
   const alertBanner = document.getElementById('alertBanner');
   const alertBody = document.getElementById('alertBody');
   if (d.flares.length > 0) {
-    const biggest = d.flares.reduce((a, b) => a.peak_counts > b.peak_counts ? a : b);
+    const biggest = d.flares.reduce((a, b) => a.solexs_peak > b.solexs_peak ? a : b);
     if(biggest.goes_class === 'X' || biggest.goes_class === 'M') {
       alertBanner.classList.add('active');
-      alertBody.innerHTML = `<strong>Class ${biggest.goes_class}</strong> flare detected peaking at ${biggest.peak_time.substring(11,19)} UTC.<br>Intensity: ${biggest.peak_counts.toFixed(0)} counts.`;
-    } else {
-      alertBanner.classList.remove('active');
-    }
-  } else {
-    alertBanner.classList.remove('active');
-  }
+      alertBody.innerHTML = `<strong>Class ${biggest.goes_class}</strong> flare detected peaking at ${biggest.peak_time.substring(11,19)} UTC.<br>Intensity: ${biggest.solexs_peak.toFixed(0)} counts.`;
+    } else { alertBanner.classList.remove('active'); }
+  } else { alertBanner.classList.remove('active'); }
 
   const fcBanner = document.getElementById('forecastBanner');
-  const fcBody = document.getElementById('forecastBody');
   if (d.forecasts.length > 0) {
     fcBanner.classList.add('active');
-    fcBody.innerHTML = `<strong>${d.forecasts.length}</strong> precursor signatures detected.<br>LSTM Engine projecting ~15 min lead time before flare onset.`;
-  } else {
-    fcBanner.classList.remove('active');
-  }
+    document.getElementById('forecastBody').innerHTML = `<strong>${d.forecasts.length}</strong> precursor signatures detected.<br>LSTM Engine projecting ~15 min lead time before flare onset.`;
+  } else { fcBanner.classList.remove('active'); }
 
   const list = document.getElementById('flareList');
   if (d.flares.length === 0) {
     list.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--muted);">No significant events.</div>';
     return;
   }
-  const sorted = [...d.flares].sort((a, b) => b.peak_counts - a.peak_counts);
+  const sorted = [...d.flares].sort((a, b) => b.solexs_peak - a.solexs_peak);
   list.innerHTML = sorted.map((f, i) => `
-    <div class="flare-item ${f.goes_class}" onclick="zoomToFlare(${sorted.indexOf(f)})">
+    <div class="flare-item ${f.verified_by_hel1os ? 'verified' : ''}" onclick="zoomToFlare(${sorted.indexOf(f)})">
       <div class="f-header">
-        <span class="f-class ${f.goes_class}">Class ${f.goes_class}</span>
+        <span class="f-class">Class ${f.goes_class}</span>
         <span class="f-time">${f.peak_time.substring(11,19)} UTC</span>
       </div>
-      <div class="f-details">Peak: <strong>${f.peak_counts.toFixed(0)} cts</strong> &middot; Dur: ${f.duration_s}s</div>
+      <div class="f-details">Peak (Soft): <strong>${f.solexs_peak.toFixed(0)} cts</strong> &middot; Dur: ${f.duration_s}s</div>
+      ${f.verified_by_hel1os ? `<div class="f-verified">✓ HEL1OS Confirmed (Peak: ${f.hel1os_peak.toFixed(1)})</div>` : ''}
     </div>
   `).join('');
   window._sortedFlares = sorted;
@@ -418,7 +400,7 @@ function zoomToFlare(idx) {
 function zoomToLargestFlare() {
   const d = currentData;
   if (!d.flares.length) return;
-  const biggest = d.flares.reduce((a, b) => a.peak_counts > b.peak_counts ? a : b);
+  const biggest = d.flares.reduce((a, b) => a.solexs_peak > b.solexs_peak ? a : b);
   const allTs = d.timestamps;
   const si = Math.max(0, biggest.start_idx - 60);
   const ei = Math.min(allTs.length - 1, biggest.end_idx + 60);
@@ -429,17 +411,41 @@ function setView(v) {
   currentView = v;
   document.getElementById('btnFull').classList.toggle('active', v === 'full');
   document.getElementById('btnFlare').classList.toggle('active', v === 'flare');
-  if (v === 'full') {
-    Plotly.relayout('chart', { 'xaxis.range': null, 'xaxis.autorange': true });
-  } else {
-    zoomToLargestFlare();
-  }
+  if (v === 'full') { Plotly.relayout('chart', { 'xaxis.range': null, 'xaxis.autorange': true }); } 
+  else { zoomToLargestFlare(); }
 }
 
 function toggleLog() {
   logScale = !logScale;
   document.getElementById('btnLog').classList.toggle('active', logScale);
-  Plotly.relayout('chart', { 'yaxis.type': logScale ? 'log' : 'linear' });
+  Plotly.relayout('chart', { 'yaxis.type': logScale ? 'log' : 'linear', 'yaxis2.type': logScale ? 'log' : 'linear' });
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const query = input.value.trim();
+  if(!query) return;
+  
+  const log = document.getElementById('chatLog');
+  log.innerHTML += `<div class="chat-msg user" style="text-align:right; border-color:var(--accent); background:rgba(210,4,45,0.1);">${query}</div>`;
+  input.value = '';
+  log.scrollTop = log.scrollHeight;
+  
+  const date = document.getElementById('dateSelect').value;
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, date })
+    });
+    const data = await res.json();
+    // basic markdown parse
+    let htmlReply = data.reply.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+    log.innerHTML += `<div class="chat-msg bot">${htmlReply}</div>`;
+    log.scrollTop = log.scrollHeight;
+  } catch(e) {
+    log.innerHTML += `<div class="chat-msg bot">Connection error to LLM backend.</div>`;
+  }
 }
 
 loadDate(document.getElementById('dateSelect').value);
