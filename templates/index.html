@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoLEXS Solar Flare Monitor — Aditya-L1</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+  :root {
+    --bg: #090d1a;
+    --panel: #0e1628;
+    --border: #1e2d50;
+    --accent: #f97316;
+    --accent2: #3b82f6;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+  header {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .logo { font-size: 1.4rem; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+  .logo span { color: var(--accent2); }
+  .subtitle { font-size: 0.8rem; color: var(--muted); }
+  .badge {
+    margin-left: auto; background: #1e3a5f; border: 1px solid var(--accent2);
+    color: var(--accent2); padding: 0.25rem 0.75rem; border-radius: 99px; font-size: 0.75rem;
+  }
+
+  .layout { display: grid; grid-template-columns: 280px 1fr; gap: 0; height: calc(100vh - 60px); }
+
+  .sidebar {
+    background: var(--panel); border-right: 1px solid var(--border);
+    padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;
+  }
+
+  .section-title { font-size: 0.7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; }
+
+  .date-select {
+    width: 100%; background: #0a1020; border: 1px solid var(--border); color: var(--text);
+    padding: 0.5rem; border-radius: 6px; font-size: 0.85rem;
+  }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .stat-card {
+    background: #0a1020; border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+  }
+  .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+  .stat-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.1rem; }
+
+  .flare-list { display: flex; flex-direction: column; gap: 0.4rem; max-height: 300px; overflow-y: auto; }
+  .flare-item {
+    background: #0a1020; border-left: 3px solid var(--muted);
+    border-radius: 0 6px 6px 0; padding: 0.5rem 0.75rem; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .flare-item:hover { border-left-color: var(--accent); }
+  .flare-item.X { border-left-color: var(--red); }
+  .flare-item.M { border-left-color: var(--accent); }
+  .flare-item.C { border-left-color: var(--yellow); }
+  .flare-item.B, .flare-item.A { border-left-color: var(--green); }
+
+  .flare-class {
+    font-weight: 700; font-size: 1rem;
+    display: inline-block; width: 20px;
+  }
+  .flare-class.X { color: var(--red); }
+  .flare-class.M { color: var(--accent); }
+  .flare-class.C { color: var(--yellow); }
+  .flare-class.B, .flare-class.A { color: var(--green); }
+
+  .flare-time { font-size: 0.72rem; color: var(--muted); }
+  .flare-peak { font-size: 0.75rem; color: var(--text); }
+
+  .alert-banner {
+    display: none; background: #3b1400; border: 1px solid var(--accent);
+    border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 0.5rem;
+  }
+  .alert-banner.active { display: block; }
+  .alert-title { font-weight: 700; color: var(--accent); font-size: 0.9rem; }
+  .alert-body { font-size: 0.75rem; color: #fbbf80; margin-top: 0.25rem; }
+
+  .forecast-banner {
+    display: none; background: #0c1f3b; border: 1px solid var(--accent2);
+    border-radius: 8px; padding: 0.75rem 1rem;
+  }
+  .forecast-banner.active { display: block; }
+  .forecast-title { font-weight: 700; color: var(--accent2); font-size: 0.9rem; }
+  .forecast-body { font-size: 0.75rem; color: #93c5fd; margin-top: 0.25rem; }
+
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+
+  .chart-area { flex: 1; padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  .controls { display: flex; gap: 0.5rem; align-items: center; }
+  .btn {
+    background: #0a1020; border: 1px solid var(--border); color: var(--text);
+    padding: 0.4rem 0.9rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+    transition: all 0.2s;
+  }
+  .btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn.active { background: var(--accent2); border-color: var(--accent2); color: white; }
+
+  #chart { flex: 1; min-height: 0; }
+
+  .legend-row {
+    display: flex; gap: 1rem; font-size: 0.72rem; color: var(--muted); padding: 0 0.5rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.3rem; }
+  .legend-dot { width: 10px; height: 3px; border-radius: 2px; }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .loading { text-align: center; color: var(--muted); padding: 2rem; }
+  .instrument-tag { font-size: 0.65rem; color: var(--muted); padding: 0.2rem 0.5rem; background: #0a1020; border: 1px solid var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">☀️ SoLEXS <span>FlareWatch</span></div>
+    <div class="subtitle">Aditya-L1 Solar Flare Nowcasting & Forecasting System</div>
+  </div>
+  <span class="instrument-tag">AL1 / SoLEXS SDD2 / L1</span>
+  <span class="badge">● LIVE DATA</span>
+</header>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <div>
+      <div class="section-title">Observation Date</div>
+      <select class="date-select" id="dateSelect" onchange="loadDate(this.value)">
+        {% for d in dates %}
+        <option value="{{ d }}" {% if d == '2026-06-21' %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div id="alertBanner" class="alert-banner">
+      <div class="alert-title">⚠️ FLARE NOWCAST ACTIVE</div>
+      <div class="alert-body" id="alertBody">Detecting flare activity...</div>
+    </div>
+
+    <div id="forecastBanner" class="forecast-banner">
+      <div class="forecast-title">🔮 FORECAST ALERT ISSUED</div>
+      <div class="forecast-body" id="forecastBody">Precursor signatures detected...</div>
+    </div>
+
+    <div>
+      <div class="section-title">Daily Statistics</div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="statMax">—</div>
+          <div class="stat-label">Peak Counts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statBaseline">—</div>
+          <div class="stat-label">Background</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statFlares">—</div>
+          <div class="stat-label">Flares Found</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statForecasts">—</div>
+          <div class="stat-label">Forecast Alerts</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-title">Detected Flares (click to zoom)</div>
+      <div class="flare-list" id="flareList">
+        <div class="loading">Loading...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="chart-area">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="controls">
+          <button class="btn active" id="btnFull" onclick="setView('full')">Full Day</button>
+          <button class="btn" id="btnFlare" onclick="setView('flare')">Flare Zoom</button>
+          <button class="btn" id="btnLog" onclick="toggleLog()">Log Scale</button>
+        </div>
+        <div class="legend-row">
+          <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div> SoLEXS Counts (10s)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Smoothed</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#64748b; border-top:2px dashed #64748b; background:none; width:18px"></div> Background</div>
+          <div class="legend-item"><div class="legend-dot" style="background:#ef4444; border-top:2px dashed #ef4444; background:none; width:18px"></div> Threshold (5σ)</div>
+        </div>
+      </div>
+      <div id="chart"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentData = null;
+let logScale = false;
+let currentView = 'full';
+
+async function loadDate(date) {
+  document.getElementById('flareList').innerHTML = '<div class="loading">Loading SoLEXS data...</div>';
+  const res = await fetch(`/api/data?date=${date}`);
+  currentData = await res.json();
+  renderChart();
+  renderSidebar();
+}
+
+function renderChart() {
+  const d = currentData;
+  const traces = [];
+
+  // Raw counts
+  traces.push({
+    x: d.timestamps, y: d.counts,
+    type: 'scatter', mode: 'lines',
+    name: 'SoLEXS Counts',
+    line: { color: 'rgba(249,115,22,0.4)', width: 1 },
+    hovertemplate: '%{y:.0f} cts<br>%{x}<extra>SoLEXS Raw</extra>'
+  });
+
+  // Smoothed
+  traces.push({
+    x: d.timestamps, y: d.smoothed,
+    type: 'scatter', mode: 'lines',
+    name: 'Smoothed',
+    line: { color: '#3b82f6', width: 2 },
+    hovertemplate: '%{y:.1f} cts<br>%{x}<extra>Smoothed</extra>'
+  });
+
+  // Background
+  traces.push({
+    x: d.timestamps, y: d.background,
+    type: 'scatter', mode: 'lines',
+    name: 'Background',
+    line: { color: '#64748b', width: 1, dash: 'dot' },
+    hovertemplate: '%{y:.1f}<extra>Background</extra>'
+  });
+
+  // Threshold
+  traces.push({
+    x: d.timestamps, y: d.threshold,
+    type: 'scatter', mode: 'lines',
+    name: '5σ Threshold',
+    line: { color: '#ef4444', width: 1, dash: 'dash' },
+    hovertemplate: '%{y:.1f}<extra>5σ Threshold</extra>'
+  });
+
+  // Flare peak markers
+  if (d.flares.length > 0) {
+    const colors = { X: '#ef4444', M: '#f97316', C: '#eab308', B: '#22c55e', A: '#22c55e' };
+    traces.push({
+      x: d.flares.map(f => f.peak_time),
+      y: d.flares.map(f => f.peak_counts),
+      type: 'scatter', mode: 'markers',
+      name: 'Flare Peak',
+      marker: {
+        size: 10, symbol: 'star',
+        color: d.flares.map(f => colors[f.goes_class] || '#f97316'),
+        line: { width: 1, color: 'white' }
+      },
+      text: d.flares.map(f => `Class ${f.goes_class} | ${f.peak_counts.toFixed(0)} cts`),
+      hovertemplate: '%{text}<br>%{x}<extra>Flare Peak</extra>'
+    });
+  }
+
+  // Forecast alert markers
+  if (d.forecasts.length > 0) {
+    traces.push({
+      x: d.forecasts.map(f => f.alert_time),
+      y: d.forecasts.map((f, i) => {
+        const idx = f.alert_idx;
+        return d.smoothed[idx] || 0;
+      }),
+      type: 'scatter', mode: 'markers',
+      name: 'Forecast Alert',
+      marker: { size: 10, symbol: 'triangle-up', color: '#3b82f6', line: { width: 1, color: 'white' } },
+      text: d.forecasts.map(f => `⚡ Forecast: ${(f.lead_time_s/60).toFixed(0)}min lead`),
+      hovertemplate: '%{text}<br>%{x}<extra>Forecast</extra>'
+    });
+  }
+
+  const layout = {
+    paper_bgcolor: '#090d1a',
+    plot_bgcolor: '#090d1a',
+    font: { color: '#e2e8f0', family: 'Segoe UI, sans-serif', size: 11 },
+    xaxis: {
+      title: 'Time (UTC)',
+      gridcolor: '#1e2d50',
+      tickfont: { size: 10 },
+      rangeslider: { visible: true, bgcolor: '#0e1628', bordercolor: '#1e2d50', thickness: 0.07 }
+    },
+    yaxis: {
+      title: 'Counts / 10s',
+      gridcolor: '#1e2d50',
+      type: logScale ? 'log' : 'linear',
+      tickfont: { size: 10 }
+    },
+    legend: {
+      bgcolor: 'rgba(14,22,40,0.8)', bordercolor: '#1e2d50', borderwidth: 1,
+      x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top', font: { size: 10 }
+    },
+    margin: { l: 55, r: 20, t: 10, b: 60 },
+    hovermode: 'x unified',
+    shapes: buildFlareShapes(d.flares, d.timestamps),
+  };
+
+  Plotly.newPlot('chart', traces, layout, { responsive: true, displayModeBar: false });
+
+  if (currentView === 'flare' && d.flares.length > 0) {
+    zoomToLargestFlare();
+  }
+}
+
+function buildFlareShapes(flares, timestamps) {
+  const colors = { X: 'rgba(239,68,68,0.08)', M: 'rgba(249,115,22,0.08)', C: 'rgba(234,179,8,0.08)', B: 'rgba(34,197,94,0.05)', A: 'rgba(34,197,94,0.05)' };
+  return flares.map(f => ({
+    type: 'rect', xref: 'x', yref: 'paper',
+    x0: f.start_time, x1: f.end_time,
+    y0: 0, y1: 1,
+    fillcolor: colors[f.goes_class] || 'rgba(249,115,22,0.08)',
+    line: { width: 0 }, layer: 'below'
+  }));
+}
+
+function renderSidebar() {
+  const d = currentData;
+  const s = d.stats;
+
+  document.getElementById('statMax').textContent = s.max_counts.toFixed(0);
+  document.getElementById('statBaseline').textContent = s.baseline.toFixed(1);
+  document.getElementById('statFlares').textContent = s.n_flares;
+  document.getElementById('statForecasts').textContent = s.n_forecasts;
+
+  // Alert banners
+  const alertBanner = document.getElementById('alertBanner');
+  const alertBody = document.getElementById('alertBody');
+  if (d.flares.length > 0) {
+    const biggest = d.flares.reduce((a, b) => a.peak_counts > b.peak_counts ? a : b);
+    alertBanner.classList.add('active');
+    alertBody.textContent = `Class ${biggest.goes_class} flare detected at ${biggest.peak_time.substring(11,19)} UTC — Peak: ${biggest.peak_counts.toFixed(0)} counts`;
+  } else {
+    alertBanner.classList.remove('active');
+  }
+
+  const fcBanner = document.getElementById('forecastBanner');
+  const fcBody = document.getElementById('forecastBody');
+  if (d.forecasts.length > 0) {
+    fcBanner.classList.add('active');
+    fcBody.textContent = `${d.forecasts.length} precursor alert(s) issued — lead time ~${(d.forecasts[0].lead_time_s/60).toFixed(0)} min before flare onset`;
+  } else {
+    fcBanner.classList.remove('active');
+  }
+
+  // Flare list
+  const list = document.getElementById('flareList');
+  if (d.flares.length === 0) {
+    list.innerHTML = '<div class="loading">No flares detected</div>';
+    return;
+  }
+  const sorted = [...d.flares].sort((a, b) => b.peak_counts - a.peak_counts);
+  list.innerHTML = sorted.map((f, i) => `
+    <div class="flare-item ${f.goes_class}" onclick="zoomToFlare(${sorted.indexOf(f)})">
+      <span class="flare-class ${f.goes_class}">${f.goes_class}</span>
+      <span class="flare-peak">${f.peak_counts.toFixed(0)} cts · ${f.duration_s}s</span>
+      <div class="flare-time">Peak: ${f.peak_time.substring(11,19)} UTC</div>
+    </div>
+  `).join('');
+  // Store sorted reference
+  window._sortedFlares = sorted;
+}
+
+function zoomToFlare(idx) {
+  const f = window._sortedFlares[idx];
+  if (!f) return;
+  // 20 min window around peak
+  const pad = 600;
+  const t0 = new Date((f.peak_time_unix || 0) * 1000);
+  Plotly.relayout('chart', {
+    'xaxis.range': [f.start_time, f.end_time]
+  });
+}
+
+function zoomToLargestFlare() {
+  const d = currentData;
+  if (!d.flares.length) return;
+  const biggest = d.flares.reduce((a, b) => a.peak_counts > b.peak_counts ? a : b);
+  // Parse timestamps and pad
+  const allTs = d.timestamps;
+  const si = Math.max(0, biggest.start_idx - 30);
+  const ei = Math.min(allTs.length - 1, biggest.end_idx + 60);
+  Plotly.relayout('chart', { 'xaxis.range': [allTs[si], allTs[ei]] });
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('btnFull').classList.toggle('active', v === 'full');
+  document.getElementById('btnFlare').classList.toggle('active', v === 'flare');
+  if (v === 'full') {
+    Plotly.relayout('chart', { 'xaxis.range': null, 'xaxis.autorange': true });
+  } else {
+    zoomToLargestFlare();
+  }
+}
+
+function toggleLog() {
+  logScale = !logScale;
+  document.getElementById('btnLog').classList.toggle('active', logScale);
+  Plotly.relayout('chart', { 'yaxis.type': logScale ? 'log' : 'linear' });
+}
+
+// Initial load
+loadDate(document.getElementById('dateSelect').value);
+
+window.addEventListener('resize', () => {
+  Plotly.Plots.resize(document.getElementById('chart'));
+});
+</script>
+</body>
+</html>
