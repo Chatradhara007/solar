@@ -1,5 +1,7 @@
-flask==3.0.3
-pandas==2.2.2
-numpy==1.26.4
-astropy==6.1.0
-scipy==1.13.1
+flask
+pandas
+numpy
+astropy
+scipy
+torch
+scikit-learn
