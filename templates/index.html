@@ -264,14 +264,18 @@ function renderChart() {
     hovertemplate: '%{y:.1f} cts<extra></extra>'
   });
 
-  // HEL1OS Smoothed (Secondary Axis)
-  traces.push({
-    x: d.timestamps, y: d.smoothed_hel1os,
-    type: 'scatter', mode: 'lines', name: 'HEL1OS (Hard)',
-    line: { color: '#3b82f6', width: 1.5 },
-    yaxis: 'y2',
-    hovertemplate: '%{y:.1f} cts<extra>Hard X-Ray</extra>'
-  });
+  const hasHel1os = d.smoothed_hel1os.some(c => c > 0);
+
+  if (hasHel1os) {
+    // HEL1OS Smoothed (Secondary Axis)
+    traces.push({
+      x: d.timestamps, y: d.smoothed_hel1os,
+      type: 'scatter', mode: 'lines', name: 'HEL1OS (Hard)',
+      line: { color: '#3b82f6', width: 1.5 },
+      yaxis: 'y2',
+      hovertemplate: '%{y:.1f} cts<extra>Hard X-Ray</extra>'
+    });
+  }
 
   // Flare peak markers
   if (d.flares.length > 0) {
@@ -315,12 +319,12 @@ function renderChart() {
       gridcolor: 'rgba(128,0,0,0.2)', type: logScale ? 'log' : 'linear',
       tickfont: { size: 10, color: '#a38d8d' }
     },
-    yaxis2: {
+    yaxis2: hasHel1os ? {
       title: 'Hard X-Ray (counts)',
       overlaying: 'y', side: 'right',
       gridcolor: 'rgba(59,130,246,0.1)', type: logScale ? 'log' : 'linear',
       tickfont: { size: 10, color: '#3b82f6' }
-    },
+    } : undefined,
     legend: {
       bgcolor: 'rgba(10,10,10,0.7)', bordercolor: 'rgba(128,0,0,0.4)', borderwidth: 1,
       x: 0.01, y: 0.99, xanchor: 'left', yanchor: 'top', font: { size: 10 }
@@ -328,6 +332,7 @@ function renderChart() {
     margin: { l: 50, r: 50, t: 10, b: 40 },
     hovermode: 'x unified',
     shapes: buildFlareShapes(d.flares),
+    uirevision: 'true'
   };
 
   Plotly.newPlot('chart', traces, layout, { responsive: true, displayModeBar: false });

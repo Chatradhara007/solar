@@ -51,6 +51,10 @@ def detect_flares(counts_arr, timestamps, sigma=5, min_duration=6, window_size=1
     counts = np.array(counts_arr, dtype=float)
     valid = ~np.isnan(counts)
 
+    # Fast-path for entirely empty/zero datasets (e.g. missing HEL1OS data)
+    if not np.any(counts[valid] > 0):
+        return [], np.full_like(counts, np.nan), np.full_like(counts, np.nan)
+
     background = np.full_like(counts, np.nan)
     for i in range(len(counts)):
         lo = max(0, i - window_size)
