@@ -19,26 +19,35 @@ def extract_and_process(zip_path):
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
             
-        fits_files = glob.glob(os.path.join(temp_dir, "**", "*.fits"), recursive=True)
+        # ISRO file extensions vary (.fits, .lc, .evt, or even no extension). 
+        # We will scan ALL files extracted.
+        all_files = glob.glob(os.path.join(temp_dir, "**", "*"), recursive=True)
+        data_files = [f for f in all_files if os.path.isfile(f)]
         
         solexs_data = None
         hel1os_data = None
         
-        for f in fits_files:
+        for f in data_files:
             fname = os.path.basename(f).lower()
             
-            # Skip Good Time Interval (GTI) and Housekeeping (HK) files
-            if fname.endswith('.gti') or fname.endswith('.hk'):
-                print(f"    -> Skipping auxiliary file: {fname}")
+            # Skip known auxiliary files immediately
+            if fname.endswith('.gti') or fname.endswith('.hk') or fname.endswith('.xml') or fname.endswith('.txt'):
+                print(f"    -> Skipping auxiliary/metadata file: {fname}")
                 continue
                 
             try:
+                # Try opening it as a FITS file regardless of extension
                 with fits.open(f) as hdul:
-                    data = hdul[1].data
+                    # Look through extensions to find the binary table with data
+                    data = None
+                    for ext in hdul:
+                        if isinstance(ext, fits.BinTableHDU):
+                            if 'TIME' in ext.columns.names and 'COUNTS' in ext.columns.names:
+                                data = ext.data
+                                break
                     
-                    # Ensure it's a lightcurve by checking column names
-                    if 'TIME' not in data.columns.names or 'COUNTS' not in data.columns.names:
-                        print(f"    -> Skipping {fname} (Missing TIME or COUNTS columns)")
+                    if data is None:
+                        print(f"    -> Skipping {fname} (Valid FITS, but missing TIME/COUNTS columns)")
                         continue
                         
                     df_raw = pd.DataFrame({'timestamp': data['TIME'], 'counts': data['COUNTS']}).dropna()
@@ -46,20 +55,20 @@ def extract_and_process(zip_path):
                     df_raw.set_index('dt', inplace=True)
                     df_resampled = df_raw.resample('10s').mean().dropna()
                     
-                    # Check naming convention for instrument
                     if 'solexs' in fname or 'slx' in fname:
                         solexs_data = df_resampled.rename(columns={'counts': 'counts'})
-                        print(f"    -> Successfully extracted SoLEXS lightcurve: {len(solexs_data)} rows.")
+                        print(f"    -> Successfully extracted SoLEXS data from {fname}: {len(solexs_data)} rows.")
                     elif 'hel1os' in fname or 'hlo' in fname:
                         hel1os_data = df_resampled.rename(columns={'counts': 'hel1os_counts'})
-                        print(f"    -> Successfully extracted HEL1OS lightcurve: {len(hel1os_data)} rows.")
+                        print(f"    -> Successfully extracted HEL1OS data from {fname}: {len(hel1os_data)} rows.")
             except Exception as e:
-                print(f"    -> Error reading {fname}: {e}")
+                # Not a FITS file, ignore
+                pass
                     
         if solexs_data is None and hel1os_data is None:
-            print("[!] No valid SoLEXS or HEL1OS .fits files found in zip.")
+            print("[!] No telemetry data found in this ZIP. (Only found auxiliary files like .gti)")
         else:
-            # Load existing database to merge new data
+            # Merge logic
             if os.path.exists(CSV_FILE):
                 df_existing = pd.read_csv(CSV_FILE)
                 df_existing['dt'] = pd.to_datetime(df_existing['timestamp'], unit='s')
@@ -67,7 +76,6 @@ def extract_and_process(zip_path):
             else:
                 df_existing = pd.DataFrame()
                 
-            # Combine the incoming data
             new_data = None
             if solexs_data is not None and hel1os_data is not None:
                 new_data = solexs_data.join(hel1os_data[['hel1os_counts']], how='outer')
@@ -79,44 +87,36 @@ def extract_and_process(zip_path):
                 new_data['counts'] = np.nan
                 
             if new_data is not None:
-                # Merge incoming data into existing database, prioritizing new data
                 df_existing = new_data.combine_first(df_existing)
-                
-                # Interpolate missing values so the AI model doesn't crash on NaNs
                 df_existing['counts'] = df_existing['counts'].interpolate(method='time').fillna(0)
                 df_existing['hel1os_counts'] = df_existing['hel1os_counts'].interpolate(method='time').fillna(0)
-                
-                # Format and save
                 df_existing['iso'] = df_existing.index.strftime('%Y-%m-%d %H:%M:%S.%f').str[:-3]
                 df_final = df_existing[['timestamp', 'counts', 'hel1os_counts', 'iso']].copy()
                 df_final.to_csv(CSV_FILE, index=False)
-                print(f"[+] Data successfully merged into database. Total rows: {len(df_final)}")
-            
-        # Move processed zip so it doesn't get processed again
-        processed_dir = os.path.join(ZIP_DIR, "processed")
-        os.makedirs(processed_dir, exist_ok=True)
-        dest_path = os.path.join(processed_dir, os.path.basename(zip_path))
-        if os.path.exists(dest_path):
-            os.remove(dest_path) # Prevent WinError 183
-        os.rename(zip_path, dest_path)
-        print(f"[>] Moved zip to {processed_dir}\n")
-        
+                print(f"[+] Data successfully merged. Total rows in database: {len(df_final)}")
+                
     except Exception as e:
         print(f"[!] Error processing {zip_path}: {e}")
-        # If the file is corrupt or fails to parse, move it to an error folder to stop infinite loops
-        error_dir = os.path.join(ZIP_DIR, "error")
-        os.makedirs(error_dir, exist_ok=True)
-        dest_path = os.path.join(error_dir, os.path.basename(zip_path))
-        if os.path.exists(dest_path):
-            try: os.remove(dest_path)
-            except: pass
-        try:
-            os.rename(zip_path, dest_path)
-            print(f"[>] Moved corrupted zip to {error_dir}\n")
-        except:
-            pass
+        
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
+        
+        # Move processed/failed zip with Retry for WinError 32
+        target_dir = os.path.join(ZIP_DIR, "processed") if solexs_data is not None or hel1os_data is not None else os.path.join(ZIP_DIR, "error")
+        os.makedirs(target_dir, exist_ok=True)
+        dest_path = os.path.join(target_dir, os.path.basename(zip_path))
+        
+        for attempt in range(5):
+            try:
+                if os.path.exists(dest_path):
+                    os.remove(dest_path)
+                os.rename(zip_path, dest_path)
+                print(f"[>] Safely moved zip to {target_dir}\n")
+                break
+            except Exception as move_err:
+                time.sleep(1) # Wait and retry if file is locked by Windows Defender or ZipFile
+        else:
+            print(f"[!] Critical: Could not move {zip_path} (File locked by Windows). Please delete it manually.")
 
 def watch_directory():
     print(f"Monitoring {ZIP_DIR} for incoming telemetry (.zip)...")
