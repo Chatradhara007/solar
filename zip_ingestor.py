@@ -42,15 +42,18 @@ def extract_and_process(zip_path):
                     data = None
                     for ext in hdul:
                         if isinstance(ext, fits.BinTableHDU):
-                            if 'TIME' in ext.columns.names and 'COUNTS' in ext.columns.names:
+                            cols = ext.columns.names
+                            if 'TIME' in cols and ('COUNTS' in cols or 'RATE' in cols):
                                 data = ext.data
                                 break
+                            else:
+                                print(f"    -> [Debug] Found table in {fname}, but columns are: {cols}")
                     
                     if data is None:
-                        print(f"    -> Skipping {fname} (Valid FITS, but missing TIME/COUNTS columns)")
                         continue
                         
-                    df_raw = pd.DataFrame({'timestamp': data['TIME'], 'counts': data['COUNTS']}).dropna()
+                    counts_col = 'COUNTS' if 'COUNTS' in data.columns.names else 'RATE'
+                    df_raw = pd.DataFrame({'timestamp': data['TIME'], 'counts': data[counts_col]}).dropna()
                     df_raw['dt'] = pd.to_datetime(df_raw['timestamp'], unit='s')
                     df_raw.set_index('dt', inplace=True)
                     df_resampled = df_raw.resample('10s').mean().dropna()
@@ -62,8 +65,8 @@ def extract_and_process(zip_path):
                         hel1os_data = df_resampled.rename(columns={'counts': 'hel1os_counts'})
                         print(f"    -> Successfully extracted HEL1OS data from {fname}: {len(hel1os_data)} rows.")
             except Exception as e:
-                # Not a FITS file, ignore
-                pass
+                if fname.endswith('.lc') or fname.endswith('.evt'):
+                    print(f"    -> [!] Failed to read {fname}: {e}")
                     
         if solexs_data is None and hel1os_data is None:
             print("[!] No telemetry data found in this ZIP. (Only found auxiliary files like .gti)")
