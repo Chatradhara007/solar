@@ -26,20 +26,36 @@ def extract_and_process(zip_path):
         
         for f in fits_files:
             fname = os.path.basename(f).lower()
-            with fits.open(f) as hdul:
-                data = hdul[1].data
-                df_raw = pd.DataFrame({'timestamp': data['TIME'], 'counts': data['COUNTS']}).dropna()
-                df_raw['dt'] = pd.to_datetime(df_raw['timestamp'], unit='s')
-                df_raw.set_index('dt', inplace=True)
-                df_resampled = df_raw.resample('10s').mean().dropna()
+            
+            # Skip Good Time Interval (GTI) and Housekeeping (HK) files
+            if fname.endswith('.gti') or fname.endswith('.hk'):
+                print(f"    -> Skipping auxiliary file: {fname}")
+                continue
                 
-                # Check naming convention for instrument
-                if 'solexs' in fname or 'slx' in fname:
-                    solexs_data = df_resampled.rename(columns={'counts': 'counts'})
-                    print(f"    -> Found SoLEXS data: {len(solexs_data)} rows.")
-                elif 'hel1os' in fname or 'hlo' in fname:
-                    hel1os_data = df_resampled.rename(columns={'counts': 'hel1os_counts'})
-                    print(f"    -> Found HEL1OS data: {len(hel1os_data)} rows.")
+            try:
+                with fits.open(f) as hdul:
+                    data = hdul[1].data
+                    
+                    # Ensure it's a lightcurve by checking column names
+                    if 'TIME' not in data.columns.names or 'COUNTS' not in data.columns.names:
+                        print(f"    -> Skipping {fname} (Missing TIME or COUNTS columns)")
+                        continue
+                        
+                    df_raw = pd.DataFrame({'timestamp': data['TIME'], 'counts': data['COUNTS']}).dropna()
+                    df_raw['dt'] = pd.to_datetime(df_raw['timestamp'], unit='s')
+                    df_raw.set_index('dt', inplace=True)
+                    df_resampled = df_raw.resample('10s').mean().dropna()
+                    
+                    # Check naming convention for instrument
+                    if 'solexs' in fname or 'slx' in fname:
+                        solexs_data = df_resampled.rename(columns={'counts': 'counts'})
+                        print(f"    -> Successfully extracted SoLEXS lightcurve: {len(solexs_data)} rows.")
+                    elif 'hel1os' in fname or 'hlo' in fname:
+                        hel1os_data = df_resampled.rename(columns={'counts': 'hel1os_counts'})
+                        print(f"    -> Successfully extracted HEL1OS lightcurve: {len(hel1os_data)} rows.")
+            except Exception as e:
+                print(f"    -> Error reading {fname}: {e}")
+                    
                     
         if solexs_data is None and hel1os_data is None:
             print("[!] No valid SoLEXS or HEL1OS .fits files found in zip.")
