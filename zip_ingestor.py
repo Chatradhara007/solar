@@ -56,7 +56,6 @@ def extract_and_process(zip_path):
             except Exception as e:
                 print(f"    -> Error reading {fname}: {e}")
                     
-                    
         if solexs_data is None and hel1os_data is None:
             print("[!] No valid SoLEXS or HEL1OS .fits files found in zip.")
         else:
@@ -96,11 +95,26 @@ def extract_and_process(zip_path):
         # Move processed zip so it doesn't get processed again
         processed_dir = os.path.join(ZIP_DIR, "processed")
         os.makedirs(processed_dir, exist_ok=True)
-        os.rename(zip_path, os.path.join(processed_dir, os.path.basename(zip_path)))
+        dest_path = os.path.join(processed_dir, os.path.basename(zip_path))
+        if os.path.exists(dest_path):
+            os.remove(dest_path) # Prevent WinError 183
+        os.rename(zip_path, dest_path)
         print(f"[>] Moved zip to {processed_dir}\n")
         
     except Exception as e:
         print(f"[!] Error processing {zip_path}: {e}")
+        # If the file is corrupt or fails to parse, move it to an error folder to stop infinite loops
+        error_dir = os.path.join(ZIP_DIR, "error")
+        os.makedirs(error_dir, exist_ok=True)
+        dest_path = os.path.join(error_dir, os.path.basename(zip_path))
+        if os.path.exists(dest_path):
+            try: os.remove(dest_path)
+            except: pass
+        try:
+            os.rename(zip_path, dest_path)
+            print(f"[>] Moved corrupted zip to {error_dir}\n")
+        except:
+            pass
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
