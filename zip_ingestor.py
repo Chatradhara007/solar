@@ -15,6 +15,9 @@ def extract_and_process(zip_path):
     temp_dir = "data/temp_extract"
     os.makedirs(temp_dir, exist_ok=True)
     
+    solexs_data = None
+    hel1os_data = None
+    
     try:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(temp_dir)
@@ -23,9 +26,6 @@ def extract_and_process(zip_path):
         # We will scan ALL files extracted.
         all_files = glob.glob(os.path.join(temp_dir, "**", "*"), recursive=True)
         data_files = [f for f in all_files if os.path.isfile(f)]
-        
-        solexs_data = None
-        hel1os_data = None
         
         for f in data_files:
             fname = os.path.basename(f).lower()
