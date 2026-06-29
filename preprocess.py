@@ -70,9 +70,17 @@ def main(raw_dir):
         print("No data loaded.")
         return
 
-    full = pd.concat(all_dfs, ignore_index=True).sort_values("timestamp").reset_index(drop=True)
+    full = pd.concat(all_dfs, ignore_index=True)
     out = "data/solexs_all.csv"
     os.makedirs("data", exist_ok=True)
+    
+    if os.path.exists(out):
+        existing = pd.read_csv(out)
+        full = pd.concat([existing, full], ignore_index=True)
+        # Drop duplicates based on timestamp in case of overlapping data
+        full = full.drop_duplicates(subset=['timestamp'])
+        
+    full = full.sort_values("timestamp").reset_index(drop=True)
     full.to_csv(out, index=False)
     print(f"\nSaved {len(full)} rows to {out}")
 
