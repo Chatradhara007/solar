@@ -53,7 +53,10 @@ def extract_and_process(zip_path):
                         continue
                         
                     counts_col = 'COUNTS' if 'COUNTS' in data.columns.names else 'RATE'
-                    df_raw = pd.DataFrame({'timestamp': data['TIME'], 'counts': data[counts_col]}).dropna()
+                    # Cast big-endian FITS arrays to native float64 to prevent Pandas ValueError
+                    t_arr = data['TIME'].astype(np.float64)
+                    c_arr = data[counts_col].astype(np.float64)
+                    df_raw = pd.DataFrame({'timestamp': t_arr, 'counts': c_arr}).dropna()
                     df_raw['dt'] = pd.to_datetime(df_raw['timestamp'], unit='s')
                     df_raw.set_index('dt', inplace=True)
                     df_resampled = df_raw.resample('10s').mean().dropna()
