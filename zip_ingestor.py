@@ -112,18 +112,26 @@ def extract_and_process(zip_path):
                     os.remove(dest_path)
                 os.rename(zip_path, dest_path)
                 print(f"[>] Safely moved zip to {target_dir}\n")
-                break
+                return True
             except Exception as move_err:
-                time.sleep(1) # Wait and retry if file is locked by Windows Defender or ZipFile
+                time.sleep(1)
         else:
             print(f"[!] Critical: Could not move {zip_path} (File locked by Windows). Please delete it manually.")
+            return False
 
 def watch_directory():
     print(f"Monitoring {ZIP_DIR} for incoming telemetry (.zip)...")
+    skip_list = set()
     while True:
         zip_files = glob.glob(os.path.join(ZIP_DIR, "*.zip"))
         for z in zip_files:
-            extract_and_process(z)
+            if z in skip_list:
+                continue
+            
+            success = extract_and_process(z)
+            if not success:
+                skip_list.add(z)
+                
         time.sleep(3)
 
 if __name__ == "__main__":
